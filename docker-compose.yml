@@ -1,0 +1,54 @@
+version: "3.9"
+services:
+  config-server:
+    container_name: config-server
+    image: config-server:lts
+    ports:
+      - 7777:7777
+    command: 'agent -server -bootstrap-expect=1 -ui -bind=0.0.0.0 -client=0.0.0.0'
+    networks:
+      - project-net
+  discovery-service:
+    container_name: discovery-service
+    image: discovery-service:lts
+    ports:
+      - 8761:8761
+    depends_on:
+      config-server:
+        condition: service_healthy
+    links:
+      - config-server
+  gateway-service:
+    container_name: gateway-service
+    image: gateway-service:lts
+    ports:
+      - 8888:8888
+    depends_on:
+      discovery-service:
+        condition: service_healthy
+    links:
+      - config-server
+      - discovery-service
+    networks:
+      - project-net
+  mysql-db:
+    container_name: mysql-db
+    image: mysql:8.0.29
+    restart: always
+    environment:
+      - MYSQL_ROOT_USERNAME=root
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=my_db
+    ports:
+      - "3306:3306"
+    links:
+      - config-server
+    volumes:
+      - $HOME/Projects/docker/mysql/data:/data/db
+      - $HOME/Projects/docker/mysql/logs:/logs
+      - $HOME/Projects/docker/mysql/tmp:/tmp
+    networks:
+      - project-net
+networks:
+  project-net:
+    driver: bridge
